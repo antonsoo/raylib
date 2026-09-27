@@ -2608,7 +2608,7 @@ int GetCodepointPrevious(const char *text, int *codepointSize)
 static int GetLine(const char *origin, char *buffer, int maxLength)
 {
     int count = 0;
-    for (; count < maxLength - 1; count++) if (origin[count] == '\n') break;
+    for (; count < maxLength - 1; count++) if ((origin[count] == '\n') || (origin[count] == '\0')) break;
     memcpy(buffer, origin, count);
     buffer[count] = '\0';
     return count;
@@ -2648,15 +2648,15 @@ static Font LoadBMFont(const char *fileName)
 
     // NOTE: Skip first line, it contains no useful information
     readBytes = GetLine(fileTextPtr, buffer, MAX_BUFFER_SIZE);
-    fileTextPtr += (readBytes + 1);
+    fileTextPtr += readBytes + ((fileTextPtr[readBytes] != '\0')? 1 : 0); // Skip line break, not text end
 
     // Read line data
     readBytes = GetLine(fileTextPtr, buffer, MAX_BUFFER_SIZE);
     searchPoint = strstr(buffer, "lineHeight");
-    readVars = sscanf(searchPoint, "lineHeight=%i base=%i scaleW=%i scaleH=%i pages=%i", &fontSize, &base, &imWidth, &imHeight, &pageCount);
-    fileTextPtr += (readBytes + 1);
+    if (searchPoint != NULL) readVars = sscanf(searchPoint, "lineHeight=%i base=%i scaleW=%i scaleH=%i pages=%i", &fontSize, &base, &imWidth, &imHeight, &pageCount);
+    fileTextPtr += readBytes + ((fileTextPtr[readBytes] != '\0')? 1 : 0);
 
-    if (readVars < 4) { UnloadFileText(fileText); return font; } // Some data not available, file malformed
+    if ((searchPoint == NULL) || (readVars < 4) || (pageCount < 1)) { UnloadFileText(fileText); return font; } // Some data not available, file malformed (or not text format)
 
     if (pageCount > MAX_FONT_IMAGE_PAGES)
     {
@@ -2668,16 +2668,16 @@ static Font LoadBMFont(const char *fileName)
     {
         readBytes = GetLine(fileTextPtr, buffer, MAX_BUFFER_SIZE);
         searchPoint = strstr(buffer, "file");
-        readVars = sscanf(searchPoint, "file=\"%128[^\"]\"", imFileName[i]);
-        fileTextPtr += (readBytes + 1);
+        readVars = (searchPoint != NULL)? sscanf(searchPoint, "file=\"%128[^\"]\"", imFileName[i]) : 0;
+        fileTextPtr += readBytes + ((fileTextPtr[readBytes] != '\0')? 1 : 0);
 
         if (readVars < 1) { UnloadFileText(fileText); return font; } // No fileName read
     }
 
     readBytes = GetLine(fileTextPtr, buffer, MAX_BUFFER_SIZE);
     searchPoint = strstr(buffer, "count");
-    readVars = sscanf(searchPoint, "count=%i", &glyphCount);
-    fileTextPtr += (readBytes + 1);
+    readVars = (searchPoint != NULL)? sscanf(searchPoint, "count=%i", &glyphCount) : 0;
+    fileTextPtr += readBytes + ((fileTextPtr[readBytes] != '\0')? 1 : 0);
 
     if (readVars < 1) { UnloadFileText(fileText); return font; } // No glyphCount read
 
@@ -2736,8 +2736,8 @@ static Font LoadBMFont(const char *fileName)
     font.baseSize = fontSize;
     font.glyphCount = glyphCount;
     font.glyphPadding = 0;
-    font.glyphs = (GlyphInfo *)RL_MALLOC(glyphCount*sizeof(GlyphInfo));
-    font.recs = (Rectangle *)RL_MALLOC(glyphCount*sizeof(Rectangle));
+    font.glyphs = (GlyphInfo *)RL_CALLOC(glyphCount, sizeof(GlyphInfo));
+    font.recs = (Rectangle *)RL_CALLOC(glyphCount, sizeof(Rectangle));
 
     int charId = 0;
     int charX = 0;
@@ -2754,7 +2754,7 @@ static Font LoadBMFont(const char *fileName)
         readBytes = GetLine(fileTextPtr, buffer, MAX_BUFFER_SIZE);
         readVars = sscanf(buffer, "char id=%i x=%i y=%i width=%i height=%i xoffset=%i yoffset=%i xadvance=%i page=%i",
                        &charId, &charX, &charY, &charWidth, &charHeight, &charOffsetX, &charOffsetY, &charAdvanceX, &pageID);
-        fileTextPtr += (readBytes + 1);
+        fileTextPtr += readBytes + ((fileTextPtr[readBytes] != '\0')? 1 : 0);
 
         if (readVars == 9) // Make sure all char data has been properly read
         {
