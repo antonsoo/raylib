@@ -2860,9 +2860,11 @@ static GlyphInfo *LoadFontDataBDF(const unsigned char *fileData, int dataSize, c
 
     glyphs = (GlyphInfo *)RL_CALLOC(codepointCount, sizeof(GlyphInfo));
 
-    while (totalReadBytes <= dataSize)
+    while (totalReadBytes < dataSize)
     {
-        readBytes = GetLine(fileTextPtr, buffer, MAX_BUFFER_SIZE);
+        // NOTE: fileData is not null-terminated, a line can't be read past dataSize
+        int maxLength = ((dataSize - totalReadBytes) < MAX_BUFFER_SIZE)? (dataSize - totalReadBytes + 1) : MAX_BUFFER_SIZE;
+        readBytes = GetLine(fileTextPtr, buffer, maxLength);
         totalReadBytes += (readBytes + 1);
         fileTextPtr += (readBytes + 1);
 
