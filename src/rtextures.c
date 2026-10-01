@@ -512,7 +512,7 @@ Image LoadImageFromMemory(const char *fileType, const unsigned char *fileData, i
         if (fileData != NULL)
         {
             qoi_desc desc = { 0 };
-            image.data = qoi_decode(fileData, dataSize, &desc, (int) fileData[12]);
+            image.data = qoi_decode(fileData, dataSize, &desc, 0); // 0: use the channels count from the validated header
             image.width = desc.width;
             image.height = desc.height;
             image.format = (desc.channels == 4)? PIXELFORMAT_UNCOMPRESSED_R8G8B8A8 : PIXELFORMAT_UNCOMPRESSED_R8G8B8;
