@@ -2679,7 +2679,7 @@ static Font LoadBMFont(const char *fileName)
     readVars = (searchPoint != NULL)? sscanf(searchPoint, "count=%i", &glyphCount) : 0;
     fileTextPtr += readBytes + ((fileTextPtr[readBytes] != '\0')? 1 : 0);
 
-    if (readVars < 1) { UnloadFileText(fileText); return font; } // No glyphCount read
+    if ((readVars < 1) || (glyphCount < 1)) { UnloadFileText(fileText); return font; } // No valid glyphCount read
 
     // Load all required images for further compose
     Image *imFonts = (Image *)RL_CALLOC(pageCount, sizeof(Image)); // Font atlases, multiple images
@@ -2736,8 +2736,8 @@ static Font LoadBMFont(const char *fileName)
     font.baseSize = fontSize;
     font.glyphCount = glyphCount;
     font.glyphPadding = 0;
-    font.glyphs = (GlyphInfo *)RL_CALLOC(glyphCount, sizeof(GlyphInfo));
-    font.recs = (Rectangle *)RL_CALLOC(glyphCount, sizeof(Rectangle));
+    font.glyphs = (GlyphInfo *)RL_MALLOC(glyphCount*sizeof(GlyphInfo));
+    font.recs = (Rectangle *)RL_MALLOC(glyphCount*sizeof(Rectangle));
 
     int charId = 0;
     int charX = 0;
@@ -2772,8 +2772,13 @@ static Font LoadBMFont(const char *fileName)
         }
         else
         {
-            font.glyphs[i].image = GenImageColor((int)font.recs[i].width, (int)font.recs[i].height, BLACK);
             TRACELOG(LOG_WARNING, "FONT: [%s] Some characters data not correctly provided", fileName);
+            UnloadFontData(font.glyphs, i); // Only the preceding glyphs have been initialized
+            RL_FREE(font.recs);
+            UnloadTexture(font.texture);
+            UnloadImage(fullFont);
+            UnloadFileText(fileText);
+            return (Font){ 0 };
         }
     }
 
